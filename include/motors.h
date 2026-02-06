@@ -3,6 +3,7 @@
 
 #include <Arduino.h>
 #include <SparkFun_TB6612.h>
+#include <EEPROM.h>
 #include "sensors.h"
 
 extern int MAX_SPEED;

@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <SparkFun_TB6612.h>
+#include <EEPROM.h>
 #include "sensors.h"
 #include "pid.h"
 #include "motors.h"
@@ -11,14 +12,18 @@ const int motorAPwm = 11;
 const int motorBIn1 = 3;
 const int motorBIn2 = 4;
 const int motorBPwm = 10;
+const int standbyPin = 8;
 
 // TB6612 Motor Classes for left and right motors.
-Motor right_motor = Motor(motorAIn1, motorAIn2, motorAPwm, 1, 1);
-Motor left_motor = Motor(motorBIn1, motorBIn2, motorBPwm, 1, 1);
+// Motor(In1, In2, PWM, offset, STBYpin)
+Motor right_motor = Motor(motorAIn1, motorAIn2, motorAPwm, 1, standbyPin);
+Motor left_motor = Motor(motorBIn1, motorBIn2, motorBPwm, 1, standbyPin);
 
 int MAX_SPEED = 200;
 int TURN_SPEED = 320;
-int UTURN_SPEED = 280;
+int UTURN_SPEED = 320;
+
+int eepromAddress = 0;
 
 // Deciding the turns based on the character send on the code.
 void makeTurn(char c)
@@ -39,45 +44,92 @@ void makeTurn(char c)
 
 void makeLeftTurn()
 {
-	// Turn left until the leftMost sensor reads 1.
-	left(left_motor, right_motor, TURN_SPEED);
+	EEPROM.write(eepromAddress++, 'L');
+
+	// Phase 1: Rotate until leftmost sensor hits black
+	left(left_motor, right_motor, 400);
 	while (readSensor(0) == 0)
 	{
 	}
 
-	// Same logic as that of the left. Just the sensors are inverted.
-	left(left_motor, right_motor, TURN_SPEED);
-	while (readSensor(0) == 1 || readSensor(4) == 0)
+	// Phase 2: Continue until sensor leaves black for alignment
+	left(left_motor, right_motor, 300);
+	while (readSensor(0) == 1)
 	{
 	}
+
+	brake(left_motor, right_motor);
+	delay(50);
+
+	turn_pid();
 	brake(left_motor, right_motor);
 }
 
 void makeRightTurn()
 {
-	right(left_motor, right_motor, TURN_SPEED);
-	// Until the rightmost sensor is not on the black line rotate right.
+	EEPROM.write(eepromAddress++, 'R');
+
+	// Phase 1: Rotate until rightmost sensor hits black
+	right(left_motor, right_motor, 400);
 	while (readSensor(7) == 0)
 	{
 	}
-	// Rightmost sensor is on black now it should leave black to align the bot. Also Right after it becomes white the bot stops which we don't want since the bot is still at an angle. So to mitigate that I will read the second to left sensor, if it comes to black then the bot is more or less aligned.
-	right(left_motor, right_motor, TURN_SPEED);
-	while (readSensor(7) == 1 || readSensor(3) == 0)
+
+	// Phase 2: Continue until sensor leaves black for alignment
+	right(left_motor, right_motor, 300);
+	while (readSensor(7) == 1)
 	{
 	}
+
+	brake(left_motor, right_motor);
+	delay(50);
+
+	// Phase 3: PID alignment to center on line
+	turn_pid();
 	brake(left_motor, right_motor);
 }
 
 void makeUTurn()
 {
-	right(left_motor, right_motor, UTURN_SPEED);
+	EEPROM.write(eepromAddress++, 'B');
+
+	// Full stop to eliminate inertia
+	brake(left_motor, right_motor);
+	delay(100);
+
+	// Small forward movement to clear the line
+	forward(left_motor, right_motor, 150);
+	delay(80);
+	brake(left_motor, right_motor);
+	delay(100);
+
+	// Phase 1: Rotate right until sensor 7 hits black (slower speed than regular turn)
+	right(left_motor, right_motor, 320);
 	while (readSensor(7) == 0)
 	{
 	}
-	// Cut the speed of the motors to reduce the drift of the motor
-	right(left_motor, right_motor, UTURN_SPEED);
-	while (readSensor(7) == 1 || readSensor(3) == 0)
+
+	// Phase 2: Continue rotation for alignment
+	right(left_motor, right_motor, 240);
+	while (readSensor(7) == 1)
 	{
 	}
+
+	brake(left_motor, right_motor);
+	delay(100);
+
+	// Phase 3: Forward PID alignment
+	turn_pid();
+	brake(left_motor, right_motor);
+	delay(100);
+
+	// Phase 4: Backward PID for fine alignment
+	backward_alignment_pid();
+	brake(left_motor, right_motor);
+	delay(100);
+
+	// Phase 5: Final forward positioning
+	forward(left_motor, right_motor, 80);
+	delay(50);
 	brake(left_motor, right_motor);
 }

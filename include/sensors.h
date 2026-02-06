@@ -13,6 +13,7 @@ void qtrCalibrate();
 bool found_intersection();
 bool isLine(int n);
 extern uint16_t sensorValues[];
+extern uint16_t threshold[];
 extern const uint8_t Sensor_Count;
 extern int buttonPin;
 

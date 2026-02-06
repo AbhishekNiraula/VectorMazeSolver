@@ -3,69 +3,24 @@
 #include "motors.h"
 float lastError = 0;
 
-// For now it's unnecessary. For the current knowledge. Maybe it will be necessary later.
 void turn_pid()
 {
-	// PID to align robot to line center after turn with minimal linear movement
-	// Quick rotational push only, minimal linear drift
-	float Kp = 1;
-	float Kd = 40;
-	int i = 0;
-	float prevError = 0;
+	// Fast PID after turn to align bot quickly on line
+	float Kp = 1.0;
+	float Kd = 40.0;
+	static float prevError = 0;
+	int baseSpeed = 150;
 
-	// Run for ~50ms - quick alignment push
-	while (i < 40)
+	for (int i = 0; i < 30; i++)
 	{
 		uint16_t position = readSensors();
 		int error = position - 3500;
 
-		float motorAdjustment = Kp * error + Kd * (error - prevError);
+		float motorSpeed = Kp * error + Kd * (error - prevError);
 		prevError = error;
 
-		int turnBaseSpeed = 150;
-
-		int rightMotorSpeed = turnBaseSpeed - motorAdjustment;
-		int leftMotorSpeed = turnBaseSpeed + motorAdjustment;
-
-		if (rightMotorSpeed > MAX_SPEED)
-			rightMotorSpeed = MAX_SPEED;
-		if (leftMotorSpeed > MAX_SPEED)
-			leftMotorSpeed = MAX_SPEED;
-		if (rightMotorSpeed < -MAX_SPEED)
-			rightMotorSpeed = -MAX_SPEED;
-		if (leftMotorSpeed < -MAX_SPEED)
-			leftMotorSpeed = -MAX_SPEED;
-
-		left_motor.drive(leftMotorSpeed);
-		right_motor.drive(rightMotorSpeed);
-
-		i++;
-		delay(5);
-	}
-	left_motor.brake();
-	right_motor.brake();
-}
-
-void uturn_pid()
-{
-	int Kp = 0.5; // High P for sharp application
-	int Kd = 80;
-	int i = 0;
-	float prevError = 0;
-
-	while (i < 50)
-	{
-		int position = readSensors();
-		int error = 3500 - position;
-
-		float motorAdjustment = Kp * error + Kd * (error - prevError);
-		prevError = error;
-
-		// To reduce the linear movement. We just want rotation jerk.
-		int turnBaseSpeed = 40;
-
-		int rightMotorSpeed = turnBaseSpeed + motorAdjustment;
-		int leftMotorSpeed = turnBaseSpeed - motorAdjustment;
+		int rightMotorSpeed = baseSpeed - motorSpeed;
+		int leftMotorSpeed = baseSpeed + motorSpeed;
 
 		if (rightMotorSpeed > MAX_SPEED)
 			rightMotorSpeed = MAX_SPEED;
@@ -76,31 +31,82 @@ void uturn_pid()
 		if (leftMotorSpeed < 0)
 			leftMotorSpeed = 0;
 
+		left_motor.drive(leftMotorSpeed);
+		right_motor.drive(rightMotorSpeed);
+
+		delay(1);
+	}
+}
+// Backward moving PID for U-turn alignment
+void backward_alignment_pid()
+{
+	float Kp = 0.5;
+	float Kd = 80.0;
+	static float lastError = 0;
+	int baseSpeed = 80; // Slow backward speed
+
+	for (int i = 0; i < 60; i++)
+	{
+		uint16_t position = readSensors();
+		int error = position - 3500;
+
+		float motorSpeed = Kp * error + Kd * (error - lastError);
+		lastError = error;
+
+		// Reversed for backward movement
+		int rightMotorSpeed = baseSpeed + motorSpeed;
+		int leftMotorSpeed = baseSpeed - motorSpeed;
+
+		if (rightMotorSpeed > 120)
+			rightMotorSpeed = 120;
+		if (leftMotorSpeed > 120)
+			leftMotorSpeed = 120;
+		if (rightMotorSpeed < 0)
+			rightMotorSpeed = 0;
+		if (leftMotorSpeed < 0)
+			leftMotorSpeed = 0;
+
+		// Negative for backward movement
 		left_motor.drive(-leftMotorSpeed);
 		right_motor.drive(-rightMotorSpeed);
 
-		i++;
 		delay(1);
 	}
-	left_motor.brake();
-	right_motor.brake();
 }
 
 // Follow this for PID Setup: https://www.instructables.com/Line-Follower-Robot-PID-Control-Android-Setup/
 void follow_segment()
 {
-	// THIS PID IS WORKING GREAT Kd = 4.0 Was great.
-	float Kp = 0.09;
-	float Kd = 3.0;
-	int MAX_PID_SPEED = 200;
-	int baseSpeed = 170;
+	// Tuned PID values from testing - provides good tracking with minimal vibration
+	// Previously working 0.08 kd = 4.0
+	float Kp = 0.18;
+	float Kd = 0.5;
+	int MAX_PID_SPEED = 180;
+	int baseSpeed = 150;
+
+	// Initialize lastError on first call to prevent derivative spike
+	static bool firstCall = true;
+	if (firstCall)
+	{
+		uint16_t position = readSensors();
+		lastError = position - 3500;
+		firstCall = false;
+	}
+
 	while (true)
 	{
-
 		uint16_t position = readSensors();
 		int error = position - 3500;
 
-		float motorSpeed = Kp * error + Kd * (error - lastError);
+		float derivative = Kd * (error - lastError);
+
+		// Limit derivative to prevent spikes
+		if (derivative > 20)
+			derivative = 20;
+		if (derivative < -20)
+			derivative = -20;
+
+		float motorSpeed = Kp * error + derivative;
 		lastError = error;
 
 		int rightMotorSpeed = baseSpeed - motorSpeed;
@@ -121,6 +127,8 @@ void follow_segment()
 		if (found_intersection())
 		{
 			brake(left_motor, right_motor);
+			delay(100);
+			firstCall = true;
 			return;
 		}
 	}

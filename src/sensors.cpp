@@ -4,7 +4,7 @@
 #include "motors.h"
 #include "sensors.h"
 
-extern const uint8_t Sensor_Count = 8;
+const uint8_t Sensor_Count = 8;
 const uint8_t sensorPinNumbers[Sensor_Count] = {A0, A1, A2, A3, A4, A5, A6, A7};
 
 // QTR Sensor object from the QTRSensors library
@@ -12,9 +12,9 @@ QTRSensors qtr;
 
 // Making the variables to store the sensor values.
 uint16_t sensorValues[Sensor_Count];
-uint16_t threshold[Sensor_Count] = {683, 715, 751, 774, 771, 709, 615, 557};
+uint16_t threshold[Sensor_Count];
 
-extern int buttonPin = 5;
+int buttonPin = 5;
 
 // Initialize the QTR sensor.
 void qtrInit()
@@ -49,8 +49,8 @@ void qtrCalibrate()
 	}
 
 	// Stop motors after calibration
-	left_motor.drive(0);
-	right_motor.drive(0);
+	left_motor.standby();
+	right_motor.standby();
 
 	// print the calibration minimum values mesured.
 	Serial.print("Minimum: ");
@@ -74,7 +74,14 @@ void qtrCalibrate()
 	Serial.print("Threshold: ");
 	for (uint8_t i = 0; i < Sensor_Count; i++)
 	{
-		threshold[i] = (qtr.calibrationOn.minimum[i] + qtr.calibrationOn.maximum[i]) / 2;
+		if (i == 0 || i == 7)
+		{
+			threshold[i] = (qtr.calibrationOn.minimum[i] * 0.25) + (qtr.calibrationOn.maximum[i] * 0.75);
+		}
+		else
+		{
+			threshold[i] = (qtr.calibrationOn.minimum[i] + qtr.calibrationOn.maximum[i]) / 2;
+		}
 		Serial.print(threshold[i]);
 		Serial.print(" ");
 	}
@@ -83,14 +90,7 @@ void qtrCalibrate()
 int readSensor(int n)
 {
 	qtr.readLineBlack(sensorValues);
-	if (n >= 0 && n < Sensor_Count)
-	{
-		if (sensorValues[n] > threshold[n])
-		{
-			return 1;
-		}
-	}
-	return 0;
+	return sensorValues[n] > threshold[n] ? 1 : 0;
 }
 
 uint16_t readSensors()
@@ -98,10 +98,10 @@ uint16_t readSensors()
 	return qtr.readLineBlack(sensorValues);
 }
 
-// Fast intersection detection using already-read sensor values (no re-reading!)
+// Fast intersection detection with debouncing to prevent false triggers
 bool found_intersection()
 {
-	// 1. CHECK EXTREME SENSORS - if extreme sensors (0 or 7) see line, sharp turn needed
+	// Count active sensors
 	bool extremeOnLine = (sensorValues[0] > threshold[0] || sensorValues[7] > threshold[7]);
 	bool centerOnLine = (sensorValues[3] > threshold[3] || sensorValues[4] > threshold[4]);
 	if (extremeOnLine && centerOnLine)
@@ -131,9 +131,5 @@ bool found_intersection()
 // Check if a specific sensor sees a line based on current buffer (does not read hardware)
 bool isLine(int n)
 {
-	if (n >= 0 && n < Sensor_Count)
-	{
-		return sensorValues[n] > threshold[n];
-	}
-	return false;
+	return sensorValues[n] > threshold[n];
 }
