@@ -1,10 +1,12 @@
 #include <Arduino.h>
 #include <EEPROM.h>
 #include "sensors.h"
+#include "simplify.h"
 #include "motors.h"
 #include "pid.h"
 
 void dry_run();
+void maze_solve();
 char lHAlgorithm(bool found_left, bool found_straight, bool found_right, bool found_uturn);
 char rHAlgorithm(bool found_right, bool found_straight, bool found_left, bool found_uturn);
 
@@ -73,11 +75,17 @@ void loop()
 	}
 	dry_run();
 
-	while (digitalRead(buttonPin) == 1)
-	{
-	}
+	// while (digitalRead(buttonPin) == 1)
+	// {
+	// }
 	// simplify_path();
-	// digitalWrite(LED_BUILTIN, HIGH);
+
+	// delay(1000);
+	// Serial.println("Press button to start maze solve...");
+
+	// while (digitalRead(buttonPin) == 1)
+	// {
+	// }
 	// maze_solve();
 }
 void dry_run()
@@ -94,102 +102,54 @@ void dry_run()
 	while (1)
 	{
 		follow_segment();
+		left_motor.standby();
+		right_motor.standby();
+		delay(100);
 
 		// LED indicates intersection handling
 		digitalWrite(LED_BUILTIN, HIGH);
-
 		// Variables to store all possible intersections
 		bool found_left = false;
 		bool found_right = false;
 		bool found_straight = false;
-
 		// Read all Sensors to deduce left/right turns
 		readSensors();
 		if (isLine(0))
 			found_left = true;
 		if (isLine(7))
 			found_right = true;
-
-		// Check for finish line: all sensors detect black
-		if (isLine(0) && isLine(1) && isLine(2) && isLine(3) && isLine(4) && isLine(5) && isLine(6) && isLine(7))
-		{
-			// Move forward to confirm it's the finish line
-			forward(left_motor, right_motor, 180);
-			delay(125);
-			brake(left_motor, right_motor);
-			delay(50);
-			readSensors();
-
-			// Confirm finish: check if center and edge sensors still detect line
-			if (isLine(3) && isLine(4) && (isLine(0) || isLine(7)))
-			{
-				// Maze solved
-				digitalWrite(LED_BUILTIN, LOW);
-				return;
-			}
-		}
-
 		// Drive forward to align wheels with intersection
-		forward(left_motor, right_motor, 185);
-		for (int i = 0; i < 10; i++)
-		{
-			delay(12);
-			readSensors();
-			if (isLine(0))
-				found_left = true;
-			if (isLine(7))
-				found_right = true;
-		}
+		forward(left_motor, right_motor, 100);
+		delay(200);
 		brake(left_motor, right_motor);
 		delay(100);
-
 		readSensors();
-		// If any of the central sensors detect a line, a straight path exists
 		if (isLine(2) || isLine(3) || isLine(4) || isLine(5))
 		{
 			found_straight = true;
 		}
-
-		// Check for dead end (no line detected)
-		bool found_uturn = true;
-		for (int i = 0; i < 8; i++)
+		readSensors();
+		if (isLine(0) && isLine(1) && isLine(2) && isLine(3) && isLine(4) && isLine(5) && isLine(6) && isLine(7))
 		{
-			if (isLine(i))
-			{
-				found_uturn = false;
-				break;
-			}
+			return;
 		}
-
-		// Determine direction using left hand algorithm
+		// Determine direction using right hand algorithm
+		// Dead-end detection: if ALL sensors read white (no line detected anywhere), trigger u-turn
+		bool found_uturn = !isLine(0) && !isLine(1) && !isLine(2) && !isLine(3) && !isLine(4) && !isLine(5) && !isLine(6) && !isLine(7);
 		char direction = rHAlgorithm(found_right, found_straight, found_left, found_uturn);
+		// Record the turn in EEPROM
 		if (direction != 'N')
 		{
-			Serial.print("Direction: ");
-			Serial.println(direction);
-
-			// Record straight decisions to EEPROM (turns are recorded in their respective functions)
 			if (direction == 'S')
 			{
-				extern int eepromAddress;
-				EEPROM.write(eepromAddress++, 'S');
+				EEPROM.write(eepromAddress++, direction);
 			}
 			else
 			{
-				// Move forward to align motors properly for the turn
-				// Use tested approach: brake to eliminate inertia, then controlled forward movement
-				brake(left_motor, right_motor);
-				delay(200);
-				forward(left_motor, right_motor, 120);
-				delay(150);
-				brake(left_motor, right_motor);
-				delay(100);
-
 				makeTurn(direction);
 			}
 		}
-
-		// Clear LED after intersection handling cycle
+		// Turn off LED after handling intersection
 		digitalWrite(LED_BUILTIN, LOW);
 	}
 }
@@ -220,8 +180,4 @@ char rHAlgorithm(bool found_right, bool found_straight, bool found_left, bool fo
 		return 'B';
 	else
 		return 'N';
-}
-
-void simplify_path()
-{
 }

@@ -1,0 +1,20 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Upload nanoatmega328new only",
+			"type": "shell",
+			"command": "platformio",
+			"args": [
+				"run",
+				"--target",
+				"upload",
+				"--environment",
+				"nanoatmega328new"
+			],
+			"problemMatcher": [
+				"$platformio"
+			]
+		}
+	]
+}

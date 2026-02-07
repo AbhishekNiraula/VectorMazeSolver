@@ -12,6 +12,11 @@ void loop()
 	}
 	Serial.println("Calibration Started");
 	qtrCalibrate();
+	
+	Serial.println("\nSensor labels (left to right):");
+	Serial.println("D1  D2  D3  D4  D5  D6  D7  D8  | Position");
+	Serial.println("--------------------------------------------");
+	
 	while (true)
 	{
 		for (int i = 0; i < Sensor_Count; i++)
@@ -19,6 +24,7 @@ void loop()
 			Serial.print(readSensor(i));
 			Serial.print(" ");
 		}
+		Serial.print("| ");
 		Serial.print(readSensors());
 		Serial.println();
 		delay(100);

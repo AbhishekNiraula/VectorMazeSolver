@@ -1,20 +1,20 @@
 #include <Arduino.h>
 #include "motors.h"
 #include "sensors.h"
+#include "simplify.h"
 #include "pid.h"
 
 // Debug version of follow_segment with detailed output
 void debug_follow_segment()
 {
-	// Slightly reduced Kp to minimize vibration while maintaining good tracking
-	float Kp = 0.18;
+	// Balanced PID for smooth, stable line following
+	float Kp = 0.042;
 	float Kd = 0.5;
-	int MAX_PID_SPEED = 200;
-	int baseSpeed = 170;
+	int MAX_PID_SPEED = 110;
+	int baseSpeed = 75;
 
-	// Pre-read sensors to initialize lastError and prevent derivative spike
-	uint16_t position = readSensors();
-	float lastError = position - 3500;
+	// Initialize lastError to 0 to prevent derivative spike on first iteration
+	int lastError = 0;
 
 	unsigned long loopCount = 0;
 	unsigned long startTime = millis();
@@ -23,7 +23,7 @@ void debug_follow_segment()
 	Serial.print("Kp=");
 	Serial.print(Kp, 3);
 	Serial.print(" | Kd=");
-	Serial.print(Kd, 1);
+	Serial.print(Kd, 2);
 	Serial.print(" | baseSpeed=");
 	Serial.print(baseSpeed);
 	Serial.print(" | MAX_PID_SPEED=");
@@ -41,17 +41,17 @@ void debug_follow_segment()
 		float proportional = Kp * error;
 		float derivative = Kd * (error - lastError);
 
-		// Minimal derivative limiting
-		if (derivative > 20)
-			derivative = 20;
-		if (derivative < -20)
-			derivative = -20;
+		// Reasonable derivative limits
+		if (derivative > 50)
+			derivative = 50;
+		if (derivative < -50)
+			derivative = -50;
 
 		float motorSpeed = proportional + derivative;
 
-		// Try swapped motor assignment if correction goes wrong direction
-		int rightMotorSpeed = baseSpeed - motorSpeed;
-		int leftMotorSpeed = baseSpeed + motorSpeed;
+		// Fixed motor assignment - swap left and right
+		int rightMotorSpeed = baseSpeed + motorSpeed;
+		int leftMotorSpeed = baseSpeed - motorSpeed;
 
 		// Clamping
 		if (rightMotorSpeed > MAX_PID_SPEED)

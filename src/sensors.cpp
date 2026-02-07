@@ -14,7 +14,7 @@ QTRSensors qtr;
 uint16_t sensorValues[Sensor_Count];
 uint16_t threshold[Sensor_Count];
 
-int buttonPin = 5;
+int buttonPin = 12;
 
 // Initialize the QTR sensor.
 void qtrInit()
@@ -23,7 +23,7 @@ void qtrInit()
 	pinMode(LED_BUILTIN, OUTPUT);
 	qtr.setTypeAnalog();
 	qtr.setSensorPins(sensorPinNumbers, Sensor_Count);
-	digitalWrite(2, HIGH);
+	digitalWrite(8, HIGH);
 	digitalWrite(LED_BUILTIN, LOW);
 }
 
@@ -76,7 +76,7 @@ void qtrCalibrate()
 	{
 		if (i == 0 || i == 7)
 		{
-			threshold[i] = (qtr.calibrationOn.minimum[i] * 0.25) + (qtr.calibrationOn.maximum[i] * 0.75);
+			threshold[i] = (qtr.calibrationOn.minimum[i] + qtr.calibrationOn.maximum[i]) / 2;
 		}
 		else
 		{
@@ -121,9 +121,7 @@ bool found_intersection()
 	}
 
 	if (allWhite)
-	{
 		return true;
-	}
 
 	return false;
 }

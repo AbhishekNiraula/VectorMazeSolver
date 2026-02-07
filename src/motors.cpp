@@ -6,22 +6,25 @@
 #include "motors.h"
 
 // Pins of the N20 motors (!Encoder)
-const int motorAIn1 = 13;
-const int motorAIn2 = 12;
-const int motorAPwm = 11;
-const int motorBIn1 = 3;
-const int motorBIn2 = 4;
-const int motorBPwm = 10;
-const int standbyPin = 8;
+// Motor A (Right Motor)
+const int motorAIn1 = 4;
+const int motorAIn2 = 5;
+const int motorAPwm = 3;
 
-// TB6612 Motor Classes for left and right motors.
-// Motor(In1, In2, PWM, offset, STBYpin)
+// Motor B (Left Motor)
+const int motorBIn1 = 6;
+const int motorBIn2 = 7;
+const int motorBPwm = 9;
+
+// Standby Pin
+const int standbyPin = 2;
+
 Motor right_motor = Motor(motorAIn1, motorAIn2, motorAPwm, 1, standbyPin);
 Motor left_motor = Motor(motorBIn1, motorBIn2, motorBPwm, 1, standbyPin);
 
-int MAX_SPEED = 200;
-int TURN_SPEED = 320;
-int UTURN_SPEED = 320;
+int MAX_SPEED = 150;
+int TURN_SPEED = 250;
+int UTURN_SPEED = 230;
 
 int eepromAddress = 0;
 
@@ -97,16 +100,36 @@ void makeUTurn()
 	brake(left_motor, right_motor);
 	delay(100);
 
-	// Small forward movement to clear the line
-	forward(left_motor, right_motor, 150);
-	delay(80);
+	// Forward movement to clear the line and position for u-turn
+	forward(left_motor, right_motor, 180);
+	delay(180);
 	brake(left_motor, right_motor);
 	delay(100);
 
+	// Check if sensor 7 is already on line (bot is inclined)
+	readSensors();
+	bool sensor7_already_on_line = (readSensor(7) == 1);
+
 	// Phase 1: Rotate right until sensor 7 hits black (slower speed than regular turn)
-	right(left_motor, right_motor, 320);
-	while (readSensor(7) == 0)
+	right(left_motor, right_motor, 340);
+
+	if (sensor7_already_on_line)
 	{
+		// If already on line, rotate until it leaves the line first
+		while (readSensor(7) == 1)
+		{
+		}
+		// Now wait for it to hit black again
+		while (readSensor(7) == 0)
+		{
+		}
+	}
+	else
+	{
+		// Normal case: wait until sensor 7 hits black
+		while (readSensor(7) == 0)
+		{
+		}
 	}
 
 	// Phase 2: Continue rotation for alignment
@@ -129,7 +152,7 @@ void makeUTurn()
 	delay(100);
 
 	// Phase 5: Final forward positioning
-	forward(left_motor, right_motor, 80);
-	delay(50);
+	forward(left_motor, right_motor, 100);
+	delay(80);
 	brake(left_motor, right_motor);
 }
