@@ -80,8 +80,8 @@ void follow_segment()
 	// Tuned PID values from motor testing - smooth, stable line following
 	float Kp = 0.042;
 	float Kd = 0.5;
-	int MAX_PID_SPEED = 110;
-	int baseSpeed = 75;
+	int MAX_PID_SPEED = 150;
+	int baseSpeed = 120;
 
 	// Initialize lastError to 0 on first call
 	static bool firstCall = true;
@@ -95,7 +95,7 @@ void follow_segment()
 
 	while (true)
 	{
-		if (millis() - segmentStartTime >= 1500)
+		if (millis() - segmentStartTime >= 1300)
 		{
 			left_motor.standby();
 			right_motor.standby();
@@ -104,7 +104,7 @@ void follow_segment()
 		}
 
 		uint16_t position = readSensors();
-		int error = 3500 - position;
+		int error = position - 3500;
 
 		float proportional = Kp * error;
 		float derivative = Kd * (error - lastError);
@@ -118,8 +118,8 @@ void follow_segment()
 		float motorSpeed = proportional + derivative;
 		lastError = error;
 
-		int rightMotorSpeed = baseSpeed + motorSpeed;
-		int leftMotorSpeed = baseSpeed - motorSpeed;
+		int rightMotorSpeed = baseSpeed - motorSpeed;
+		int leftMotorSpeed = baseSpeed + motorSpeed;
 
 		if (rightMotorSpeed > MAX_PID_SPEED)
 			rightMotorSpeed = MAX_PID_SPEED;

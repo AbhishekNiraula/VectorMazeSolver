@@ -50,8 +50,8 @@ void debug_follow_segment()
 		float motorSpeed = proportional + derivative;
 
 		// Fixed motor assignment - swap left and right
-		int rightMotorSpeed = baseSpeed + motorSpeed;
-		int leftMotorSpeed = baseSpeed - motorSpeed;
+		int rightMotorSpeed = baseSpeed - motorSpeed;
+		int leftMotorSpeed = baseSpeed + motorSpeed;
 
 		// Clamping
 		if (rightMotorSpeed > MAX_PID_SPEED)

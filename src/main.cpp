@@ -4,110 +4,134 @@
 #include "simplify.h"
 #include "motors.h"
 #include "pid.h"
+#include "maze_solve.h"
+
+bool useLH = false;
+bool isCalibrated = false;
 
 void dry_run();
-void maze_solve();
-char lHAlgorithm(bool found_left, bool found_straight, bool found_right, bool found_uturn);
-char rHAlgorithm(bool found_right, bool found_straight, bool found_left, bool found_uturn);
 
 void setup()
 {
+	// Initialize the QTR and other Sensors interfaced.
 	qtrInit();
 	Serial.begin(9600);
-}
 
-void loop()
-{
-	// uint16_t position = readSensors();
-	// Serial.println(position);
-	// Wait until button is pressed to start
-	while (digitalRead(buttonPin) == 1)
+	while (digitalRead(CAL_BUTTON) == HIGH)
 	{
 	}
-	// Debounce the initial press (ignore contact bounce)
-	delay(50);
+	digitalWrite(LED_BUILTIN, HIGH);
+	delay(500);
+	qtrCalibrate();
 
-	// Wait for release (Button must go HIGH/1)
-	while (digitalRead(buttonPin) == 0)
+	// Wait until the algorithm selection buttons are pressed
+	while (digitalRead(LH_BUTTON) == HIGH && digitalRead(RH_BUTTON) == HIGH)
 	{
-		delay(10);
 	}
 
-	// Debounce the release (ignore contact bounce on release)
-	// This prevents the "tail" of the first click from registering as a second click
-	delay(100);
-
-	// Check for a second press within a short window (e.g., 500ms)
-	// We are looking for the button to go LOW (0) again.
-	unsigned long startTime = millis();
-	bool doubleClick = false;
-	while (millis() - startTime < 500)
+	if (digitalRead(LH_BUTTON) == LOW)
 	{
-		if (digitalRead(buttonPin) == 0)
-		{
-			doubleClick = true;
-			break;
-		}
-	}
-
-	if (doubleClick)
-	{
-		Serial.println("Double Click Detected: Calibrating...");
-		// Debounce the second press
+		useLH = true;
 		delay(50);
-		// Wait for button release of the second click
-		while (digitalRead(buttonPin) == 0)
+		while (digitalRead(LH_BUTTON) == LOW)
 		{
 			delay(10);
 		}
-		delay(1000); // Time to move hand away
-		qtrCalibrate();
 	}
-	else
+	else if (digitalRead(RH_BUTTON) == LOW)
 	{
-		Serial.println("Single Click Detected: Skipping Calibration...");
+		useLH = false;
+		delay(50);
+		while (digitalRead(RH_BUTTON) == LOW)
+		{
+			delay(10);
+		}
 	}
-
-	delay(1000);
-
-	while (digitalRead(buttonPin) == 1)
+	while (digitalRead(CAL_BUTTON) == HIGH)
 	{
 	}
-	dry_run();
+	delay(500);
 
-	// while (digitalRead(buttonPin) == 1)
-	// {
-	// }
-	// simplify_path();
-
-	// delay(1000);
-	// Serial.println("Press button to start maze solve...");
-
-	// while (digitalRead(buttonPin) == 1)
-	// {
-	// }
-	// maze_solve();
-}
-void dry_run()
-{
-	// Clear EEPROM at the start of each run for new path recording
 	extern int eepromAddress;
 	for (int i = 0; i < 1024; i++)
 	{
 		EEPROM.write(i, 0xFF);
 	}
-	// Reset address counter
 	eepromAddress = 0;
+}
+
+void loop()
+{
+	dry_run();
+
+	while (digitalRead(RH_BUTTON) == HIGH && digitalRead(CAL_BUTTON) == HIGH)
+	{
+	}
+
+	if (digitalRead(RH_BUTTON) == LOW)
+	{
+		// Redo dry run
+		delay(50);
+		while (digitalRead(RH_BUTTON) == LOW)
+		{
+			delay(10);
+		}
+		delay(500);
+		return; // Restart loop to redo dry_run
+	}
+
+	// Dry run completed, simplify path
+	simplify_path();
+
+	// Wait for button 12 to start maze solve
+	while (digitalRead(CAL_BUTTON) == HIGH)
+	{
+	}
+	delay(50);
+	while (digitalRead(CAL_BUTTON) == LOW)
+	{
+		delay(10);
+	}
+
+	delay(500);
+	maze_solve(useLH);
+
+	// Maze solve complete - stop
+	while (1)
+	{
+		delay(1000);
+	}
+}
+void dry_run()
+{
+	extern int eepromAddress;
 
 	while (1)
 	{
+		// Press digital pin 11 for restarting dry run
+		if (digitalRead(RH_BUTTON) == LOW)
+		{
+			delay(50);
+			while (digitalRead(RH_BUTTON) == LOW)
+			{
+				delay(10);
+			}
+			left_motor.standby();
+			right_motor.standby();
+			delay(100);
+			continue; // Restart dry run
+		}
+
 		follow_segment();
 		left_motor.standby();
 		right_motor.standby();
-		delay(100);
 
 		// LED indicates intersection handling
 		digitalWrite(LED_BUILTIN, HIGH);
+		forward(left_motor, right_motor, 50);
+		delay(30);
+		left_motor.standby();
+		right_motor.standby();
 		// Variables to store all possible intersections
 		bool found_left = false;
 		bool found_right = false;
@@ -120,9 +144,9 @@ void dry_run()
 			found_right = true;
 		// Drive forward to align wheels with intersection
 		forward(left_motor, right_motor, 100);
-		delay(200);
+		delay(250);
 		brake(left_motor, right_motor);
-		delay(100);
+		delay(30);
 		readSensors();
 		if (isLine(2) || isLine(3) || isLine(4) || isLine(5))
 		{
@@ -131,12 +155,28 @@ void dry_run()
 		readSensors();
 		if (isLine(0) && isLine(1) && isLine(2) && isLine(3) && isLine(4) && isLine(5) && isLine(6) && isLine(7))
 		{
+			for (int i = 0; i < 10; i++)
+			{
+				digitalWrite(LED_BUILTIN, HIGH);
+				delay(200);
+				digitalWrite(LED_BUILTIN, LOW);
+				delay(200);
+			}
 			return;
 		}
-		// Determine direction using right hand algorithm
-		// Dead-end detection: if ALL sensors read white (no line detected anywhere), trigger u-turn
+		// Determine direction using selected algorithm
 		bool found_uturn = !isLine(0) && !isLine(1) && !isLine(2) && !isLine(3) && !isLine(4) && !isLine(5) && !isLine(6) && !isLine(7);
-		char direction = rHAlgorithm(found_right, found_straight, found_left, found_uturn);
+
+		char direction;
+		if (useLH)
+		{
+			direction = lHAlgorithm(found_left, found_straight, found_right, found_uturn);
+		}
+		else
+		{
+			direction = rHAlgorithm(found_right, found_straight, found_left, found_uturn);
+		}
+
 		// Record the turn in EEPROM
 		if (direction != 'N')
 		{
@@ -152,32 +192,4 @@ void dry_run()
 		// Turn off LED after handling intersection
 		digitalWrite(LED_BUILTIN, LOW);
 	}
-}
-
-char lHAlgorithm(bool found_left, bool found_straight, bool found_right, bool found_uturn)
-{
-	if (found_left)
-		return 'L';
-	else if (found_straight)
-		return 'S';
-	else if (found_right)
-		return 'R';
-	else if (found_uturn)
-		return 'B';
-	else
-		return 'N';
-}
-
-char rHAlgorithm(bool found_right, bool found_straight, bool found_left, bool found_uturn)
-{
-	if (found_right)
-		return 'R';
-	else if (found_straight)
-		return 'S';
-	else if (found_left)
-		return 'L';
-	else if (found_uturn)
-		return 'B';
-	else
-		return 'N';
 }

@@ -18,7 +18,7 @@
  * To clear EEPROM: Uncomment the clearEEPROM() function call in loop()
  */
 
-const int buttonPin = 5;
+const int buttonPin = 12;
 const int MAX_PATH_LENGTH = 1024; // Arduino Nano has 1KB EEPROM
 
 void readStoredPath();

@@ -45,12 +45,27 @@ void makeTurn(char c)
 	}
 }
 
-void makeLeftTurn()
+// Execute turn without writing to EEPROM (for maze solve)
+void executeTurn(char c)
 {
-	EEPROM.write(eepromAddress++, 'L');
+	switch (c)
+	{
+	case 'L':
+		executeLeftTurn();
+		break;
+	case 'R':
+		executeRightTurn();
+		break;
+	case 'B':
+		executeUTurn();
+		break;
+	}
+}
 
+void executeLeftTurn()
+{
 	// Phase 1: Rotate until leftmost sensor hits black
-	left(left_motor, right_motor, 400);
+	left(left_motor, right_motor, 380);
 	while (readSensor(0) == 0)
 	{
 	}
@@ -68,12 +83,16 @@ void makeLeftTurn()
 	brake(left_motor, right_motor);
 }
 
-void makeRightTurn()
+void makeLeftTurn()
 {
-	EEPROM.write(eepromAddress++, 'R');
+	EEPROM.write(eepromAddress++, 'L');
+	executeLeftTurn();
+}
 
+void executeRightTurn()
+{
 	// Phase 1: Rotate until rightmost sensor hits black
-	right(left_motor, right_motor, 400);
+	right(left_motor, right_motor, 380);
 	while (readSensor(7) == 0)
 	{
 	}
@@ -92,19 +111,23 @@ void makeRightTurn()
 	brake(left_motor, right_motor);
 }
 
-void makeUTurn()
+void makeRightTurn()
 {
-	EEPROM.write(eepromAddress++, 'B');
+	EEPROM.write(eepromAddress++, 'R');
+	executeRightTurn();
+}
 
+void executeUTurn()
+{
 	// Full stop to eliminate inertia
 	brake(left_motor, right_motor);
-	delay(100);
+	delay(50);
 
 	// Forward movement to clear the line and position for u-turn
-	forward(left_motor, right_motor, 180);
-	delay(180);
+	forward(left_motor, right_motor, 100);
+	delay(150);
 	brake(left_motor, right_motor);
-	delay(100);
+	delay(50);
 
 	// Check if sensor 7 is already on line (bot is inclined)
 	readSensors();
@@ -139,20 +162,54 @@ void makeUTurn()
 	}
 
 	brake(left_motor, right_motor);
-	delay(100);
+	delay(50);
 
 	// Phase 3: Forward PID alignment
 	turn_pid();
 	brake(left_motor, right_motor);
-	delay(100);
+	delay(50);
 
 	// Phase 4: Backward PID for fine alignment
 	backward_alignment_pid();
 	brake(left_motor, right_motor);
-	delay(100);
+	delay(50);
 
 	// Phase 5: Final forward positioning
 	forward(left_motor, right_motor, 100);
 	delay(80);
 	brake(left_motor, right_motor);
+}
+
+void makeUTurn()
+{
+	EEPROM.write(eepromAddress++, 'B');
+	executeUTurn();
+}
+
+char lHAlgorithm(bool found_left, bool found_straight, bool found_right, bool found_uturn)
+{
+	if (found_left)
+		return 'L';
+	else if (found_straight)
+		return 'S';
+	else if (found_right)
+		return 'R';
+	else if (found_uturn)
+		return 'B';
+	else
+		return 'N';
+}
+
+char rHAlgorithm(bool found_right, bool found_straight, bool found_left, bool found_uturn)
+{
+	if (found_right)
+		return 'R';
+	else if (found_straight)
+		return 'S';
+	else if (found_left)
+		return 'L';
+	else if (found_uturn)
+		return 'B';
+	else
+		return 'N';
 }

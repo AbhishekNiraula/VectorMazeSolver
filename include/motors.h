@@ -15,4 +15,14 @@ void makeTurn(char c);
 void makeLeftTurn();
 void makeRightTurn();
 void makeUTurn();
+
+// Execute turn without EEPROM write (for maze solve)
+void executeTurn(char c);
+void executeLeftTurn();
+void executeRightTurn();
+void executeUTurn();
+
+// Maze solving algorithms
+char lHAlgorithm(bool found_left, bool found_straight, bool found_right, bool found_uturn);
+char rHAlgorithm(bool found_right, bool found_straight, bool found_left, bool found_uturn);
 #endif

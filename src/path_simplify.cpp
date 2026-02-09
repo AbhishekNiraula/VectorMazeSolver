@@ -17,18 +17,8 @@ void simplify_path()
 
 	if (pathLength < 3)
 	{
-		Serial.println("Path too short to simplify");
 		return;
 	}
-
-	Serial.print("Original path length: ");
-	Serial.println(pathLength);
-	Serial.print("Original path: ");
-	for (int i = 0; i < pathLength; i++)
-	{
-		Serial.print(path[i]);
-	}
-	Serial.println();
 
 	// Patterns: LBR=B, LBS=R, RBL=B, SBL=R, SBS=B, LBL=S
 	bool simplified = true;
@@ -56,6 +46,12 @@ void simplify_path()
 					newTurn = 'B'; // SBS = B
 				else if (before == 'L' && after == 'L')
 					newTurn = 'S'; // LBL = S
+				else if (before == 'R' && after == 'R')
+					newTurn = 'S'; // RBR = S
+				else if (before == 'R' && after == 'S')
+					newTurn = 'L'; // RBS = L
+				else if (before == 'S' && after == 'R')
+					newTurn = 'L'; // SBR = L
 
 				if (newTurn != 0)
 				{
@@ -75,15 +71,6 @@ void simplify_path()
 		}
 	}
 
-	Serial.print("Simplified path length: ");
-	Serial.println(pathLength);
-	Serial.print("Simplified path: ");
-	for (int i = 0; i < pathLength; i++)
-	{
-		Serial.print(path[i]);
-	}
-	Serial.println();
-
 	// Write simplified path back to EEPROM
 	for (int i = 0; i < pathLength; i++)
 	{
@@ -97,6 +84,4 @@ void simplify_path()
 	{
 		EEPROM.write(i, 0xFF);
 	}
-
-	Serial.println("Path simplified and saved to EEPROM");
 }

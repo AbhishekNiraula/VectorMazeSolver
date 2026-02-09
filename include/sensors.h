@@ -17,4 +17,9 @@ extern uint16_t threshold[];
 extern const uint8_t Sensor_Count;
 extern int buttonPin;
 
+// Button pins
+extern const int LH_BUTTON;
+extern const int RH_BUTTON;
+extern const int CAL_BUTTON;
+
 #endif

@@ -5,7 +5,7 @@
 #include "sensors.h"
 
 const uint8_t Sensor_Count = 8;
-const uint8_t sensorPinNumbers[Sensor_Count] = {A0, A1, A2, A3, A4, A5, A6, A7};
+const uint8_t sensorPinNumbers[Sensor_Count] = {A7, A6, A5, A4, A3, A2, A1, A0};
 
 // QTR Sensor object from the QTRSensors library
 QTRSensors qtr;
@@ -14,12 +14,18 @@ QTRSensors qtr;
 uint16_t sensorValues[Sensor_Count];
 uint16_t threshold[Sensor_Count];
 
-int buttonPin = 12;
+// Button pins
+const int LH_BUTTON = 10;
+const int RH_BUTTON = 11;
+const int CAL_BUTTON = 12;
 
 // Initialize the QTR sensor.
 void qtrInit()
 {
-	pinMode(buttonPin, INPUT_PULLUP);
+	// Setup all button pins
+	pinMode(10, INPUT_PULLUP); // LH algorithm button
+	pinMode(11, INPUT_PULLUP); // RH algorithm button
+	pinMode(12, INPUT_PULLUP); // Calibration/Solve button
 	pinMode(LED_BUILTIN, OUTPUT);
 	qtr.setTypeAnalog();
 	qtr.setSensorPins(sensorPinNumbers, Sensor_Count);
