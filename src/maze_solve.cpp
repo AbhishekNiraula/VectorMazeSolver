@@ -6,6 +6,7 @@
 
 void maze_solve(bool useLeftHand)
 {
+	// Reading the EEPROM data onto an array.
 	char path[100];
 	int pathLength = 0;
 

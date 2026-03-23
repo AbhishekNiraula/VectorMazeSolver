@@ -16,7 +16,7 @@ void makeLeftTurn();
 void makeRightTurn();
 void makeUTurn();
 
-// Execute turn without EEPROM write (for maze solve)
+// Turn without EEPROM Write
 void executeTurn(char c);
 void executeLeftTurn();
 void executeRightTurn();
